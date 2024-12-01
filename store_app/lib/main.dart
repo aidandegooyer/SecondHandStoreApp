@@ -1,125 +1,124 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
-  runApp(const MyApp());
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      title: 'Django API Integration',
+      theme: ThemeData(primarySwatch: Colors.blue),
+      home: ApiDemoScreen(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+class ApiDemoScreen extends StatelessWidget {
+  final String baseUrl = 'http://10.0.2.2:8000/upload'; // Update based on your Django server
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
+  Future<Map<String, dynamic>> uploadImage(String filePath) async {
+    final List<int> dummyImageBytes = [
+      0x00, 0x00, 0x00, 0x00 // RGBA: transparent pixel
+    ];
+    var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/uploadImage/'));
+    request.files.add(await http.MultipartFile.fromBytes('image', dummyImageBytes, filename: 'dummy_image.png'));
 
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
+    var response = await request.send();
+    if (response.statusCode == 200) {
+      return json.decode(await response.stream.bytesToString());
+    } else {
+      throw Exception('Failed to upload image');
+    }
+  }
 
-  final String title;
+  Future<Map<String, dynamic>> createListing(String name, String description, double price, String filePath) async {
+    var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/createListing/'));
+    request.fields['name'] = name;
+    request.fields['description'] = description;
+    request.fields['price'] = price.toString();
+    request.files.add(await http.MultipartFile.fromPath('image', filePath));
 
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
+    var response = await request.send();
+    if (response.statusCode == 201) {
+      return json.decode(await response.stream.bytesToString());
+    } else {
+      throw Exception('Failed to create listing');
+    }
+  }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+  Future<List<dynamic>> getNext(int itemsToSend, int idToStart, {String searchTerm = ""}) async {
+    final uri = Uri.parse('$baseUrl/getNext/')
+        .replace(queryParameters: {
+      'itemsToSend': itemsToSend.toString(),
+      'idToStart': idToStart.toString(),
+      'searchTerm': searchTerm,
     });
+    final response = await http.get(uri);
+    if (response.statusCode == 200) {
+      return json.decode(response.body)['items'];
+    } else {
+      throw Exception('Failed to fetch items');
+    }
+  }
+
+  Future<void> editListing(int itemNumber, String name, String description, double price) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/editListing/$itemNumber/'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'name': name,
+        'description': description,
+        'price': price,
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to edit listing');
+    }
+  }
+
+  Future<void> deleteListing(int itemNumber) async {
+    var response = await http.delete(Uri.parse('$baseUrl/deleteListing/$itemNumber/'));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete listing');
+    }
+  }
+
+  Future<String> getCsrfToken() async {
+    var response = await http.get(Uri.parse('$baseUrl/get-csrf-token/'));
+    if (response.statusCode == 200) {
+      return json.decode(response.body)['csrfToken'];
+    } else {
+      throw Exception('Failed to fetch CSRF token');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
+      appBar: AppBar(title: Text('Create Listing')),
       body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'Test:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+        child: ElevatedButton(
+          onPressed: () async {
+            try {
+              // Example: Create listing with hardcoded values
+              final name = 'Sample Product';
+              final description = 'This is a sample product description';
+              final price = 19.99;
+              final filePath = '/path/to/your/image.jpg'; // Replace with a valid image file path
+
+              final response = await createListing(name, description, price, filePath);
+              print('Create Listing Response: $response');
+            } catch (e) {
+              print('Error: $e');
+            }
+          },
+          child: Text('Create Listing'),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
