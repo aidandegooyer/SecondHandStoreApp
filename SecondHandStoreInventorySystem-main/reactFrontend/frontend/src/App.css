@@ -1,0 +1,14 @@
+body, html, #root, .app-container {
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.app-container {
+  flex: 1;
+  padding-left: 20px;
+  padding-right: 20px;
+  padding-top: 76px;
+}
