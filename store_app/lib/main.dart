@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 void main() {
@@ -18,12 +19,15 @@ class MyApp extends StatelessWidget {
 }
 
 class ApiDemoScreen extends StatelessWidget {
-  final String baseUrl = 'http://10.0.2.2:8000/upload'; // Update based on your Django server
+  final String baseUrl = 'http://10.0.2.2:8000/upload';
 
-  Future<Map<String, dynamic>> uploadImage(String filePath) async {
+  Future<Map<String, dynamic>> uploadImage() async {
+    // Example: Create a dummy image as a byte list (in real-world, you would use a file path)
     final List<int> dummyImageBytes = [
       0x00, 0x00, 0x00, 0x00 // RGBA: transparent pixel
     ];
+
+    // Send image data as a multipart request
     var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/uploadImage/'));
     request.files.add(await http.MultipartFile.fromBytes('image', dummyImageBytes, filename: 'dummy_image.png'));
 
@@ -35,18 +39,32 @@ class ApiDemoScreen extends StatelessWidget {
     }
   }
 
-  Future<Map<String, dynamic>> createListing(String name, String description, double price, String filePath) async {
-    var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/createListing/'));
-    request.fields['name'] = name;
-    request.fields['description'] = description;
-    request.fields['price'] = price.toString();
-    request.files.add(await http.MultipartFile.fromPath('image', filePath));
+  Future<Map<String, dynamic>> createListing(String name, String description, double price) async {
+    try {
+      // Load the image as bytes from assets
+      final ByteData byteData = await rootBundle.load('assets/defaultProfilePic.jpg');
+      final List<int> imageBytes = byteData.buffer.asUint8List();
 
-    var response = await request.send();
-    if (response.statusCode == 201) {
-      return json.decode(await response.stream.bytesToString());
-    } else {
-      throw Exception('Failed to create listing');
+      var request = http.MultipartRequest('POST', Uri.parse('$baseUrl/createListing/'));
+      request.fields['name'] = name;
+      request.fields['description'] = description;
+      request.fields['price'] = price.toString();
+
+      // Add the image bytes to the request
+      request.files.add(http.MultipartFile.fromBytes('image', imageBytes, filename: 'sample_image.jpg'));
+
+      // Send the request
+      var response = await request.send();
+
+      // Check the server response
+      if (response.statusCode == 201) {
+        return json.decode(await response.stream.bytesToString());
+      } else {
+        throw Exception('Failed to create listing');
+      }
+    } catch (e) {
+      print('Error: $e');
+      rethrow; // Re-throw the error to handle it properly in UI or logs
     }
   }
 
@@ -99,26 +117,22 @@ class ApiDemoScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Create Listing')),
+      appBar: AppBar(title: Text('Upload Image')),
       body: Center(
         child: ElevatedButton(
           onPressed: () async {
             try {
-              // Example: Create listing with hardcoded values
-              final name = 'Sample Product';
-              final description = 'This is a sample product description';
-              final price = 19.99;
-              final filePath = '/path/to/your/image.jpg'; // Replace with a valid image file path
-
-              final response = await createListing(name, description, price, filePath);
-              print('Create Listing Response: $response');
+              final response = await uploadImage();
+              print('Upload Response: $response');
             } catch (e) {
               print('Error: $e');
             }
           },
-          child: Text('Create Listing'),
+          child: Text('Upload Dummy Image'),
         ),
       ),
     );
   }
 }
+
+
