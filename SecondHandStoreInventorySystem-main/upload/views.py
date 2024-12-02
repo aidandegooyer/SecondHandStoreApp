@@ -10,64 +10,61 @@ from .models import InventoryItem
 from django.views.decorators.csrf import csrf_exempt
 import logging
 import json
+from django.core.files.storage import default_storage
 
-logger = logging.getLogger(__name__)
 
 itemNumberOn = 1  # Tracks the next item number for the database
 
+# Configure logging
+logger = logging.getLogger(__name__)
 
 @csrf_exempt
 def upload_image(request):
     if request.method == 'POST':
-        form = ImageUploadForm(request.POST, request.FILES)
-        if form.is_valid():
-            form.save()
+        image = request.FILES.get('image')
 
-        if 'image' in request.FILES:
-            image = request.FILES['image']
-            pil_image = Image.open(image)
-            if pil_image.size[0] > 512 or pil_image.size[1] > 512:
-                pil_image = pil_image.resize((512, 512))
+        if image:
+            try:
+                logger.info(f"Received image: {image.name}")
 
-            cost = sender.send_message(pil_image, "MSRP Price: $")
-            product_listing = sender.send_message(pil_image, "Product Name:")
+                # Directly save the file without opening it with PIL
+                file_path = default_storage.save('images/' + image.name, image)
 
-            return JsonResponse({
-                'cost': cost,
-                'product_listing': product_listing,
-            })
+                logger.info(f"Image saved at: {file_path}")
+                return JsonResponse({'status': 'success', 'file_path': file_path}, status=200)
 
-    return JsonResponse({'error': 'Invalid data or method'}, status=400)
+            except Exception as e:
+                logger.error(f"Error saving the image: {e}")
+                return JsonResponse({'error': str(e)}, status=500)
+        else:
+            logger.error("No image provided in the request.")
+            return JsonResponse({'error': 'No image provided'}, status=400)
+
+    logger.error("Invalid method for image upload.")
+    return JsonResponse({'error': 'Invalid method'}, status=405)
 
 
 @csrf_exempt
 def create_listing(request):
     if request.method == 'POST':
-        try:
-            data = json.loads(request.body)  # Read JSON body
-            name = data.get('name')
-            description = data.get('description', 'No Description')  # Default value
-            price = data.get('price')
-            image = request.FILES.get('image')
+        name = request.POST.get('name')
+        description = request.POST.get('description')
+        price = request.POST.get('price')
+        image = request.FILES.get('image')  # This is the uploaded image file
 
-            if not all([name, price, image]):
-                return JsonResponse({'error': 'Missing required fields: name, price, or image'}, status=400)
-
-            price = float(price)  # Validate price
-
-            item = InventoryItem.objects.create(
+        if image:
+            # Save the image and create a listing object
+            # For example, save the image to your model
+            listing = InventoryItem.objects.create(
                 name=name,
                 description=description,
                 price=price,
-                image=image,
-                archieved=False
+                image=image
             )
-            return JsonResponse({'message': 'Listing created successfully', 'id': item.id}, status=201)
-        except Exception as e:
-            logger.error(f"Error creating listing: {e}")
-            return JsonResponse({'error': 'An unexpected error occurred'}, status=500)
-
-    return JsonResponse({'error': 'Invalid HTTP method. Only POST is allowed.'}, status=405)
+            return JsonResponse({'status': 'success', 'id': listing.id}, status=201)
+        else:
+            return JsonResponse({'error': 'Image not provided'}, status=400)
+    return JsonResponse({'error': 'Invalid method'}, status=405)
 
 
 def get_next(request):
