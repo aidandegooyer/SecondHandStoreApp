@@ -235,7 +235,19 @@ class Upload extends StatelessWidget {
         ),
       ),
       body: Center(
-        child: Text('Upload'),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Upload'),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                // TODO: Implement image selection from gallery
+              },
+              child: Text('Image from Gallery'),
+            ),
+          ],
+        ),
       ),
     );
   }
