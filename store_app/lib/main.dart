@@ -10,8 +10,8 @@ void main() {
 }
 
 // App-wide variables
-const String baseUrl = 'http://10.0.2.2:8000/upload';
-const String baseIP = 'http://10.0.2.2:8000';
+const String baseUrl = 'http://amhamilt.pythonanywhere.com/upload';
+const String baseIP = 'http://amhamilt.pythonanywhere.com';
 int total = 0;
 
 // API Calls
@@ -153,7 +153,7 @@ class MyApp extends StatelessWidget {
               115, 200, 230, 255), // Background color of text box
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8.0), // Rounded corners
-            borderSide: BorderSide(
+            borderSide: const BorderSide(
               color: Colors.blue, // Border color
             ),
           ),
@@ -234,16 +234,20 @@ class _MarketplaceState extends State<Marketplace> {
                 Image.network(
                   '$baseIP/media/${item['fields']['image']}',
                   fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    // Fallback widget when the image fails to load
+                    return const Icon(Icons.broken_image, size: 50);
+                  },
                 ),
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
               Text(
                 'Description: ${item['fields']['description']}',
-                style: TextStyle(fontSize: 16),
+                style: const TextStyle(fontSize: 16),
               ),
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
               Text(
                 'Price: \$${item['fields']['price']}',
-                style: TextStyle(fontSize: 16),
+                style: const TextStyle(fontSize: 16),
               ),
             ],
           ),
@@ -252,7 +256,7 @@ class _MarketplaceState extends State<Marketplace> {
               onPressed: () {
                 Navigator.of(context).pop(); // Close the dialog
               },
-              child: Text('Close'),
+              child: const Text('Close'),
             ),
           ],
         );
@@ -375,8 +379,17 @@ class _MarketplaceState extends State<Marketplace> {
                       return ListTile(
                         onTap: () => showItemDetails(item),
                         leading: imageUrl != null && imageUrl != 'null'
-                            ? Image.network(imageUrl,
-                                width: 50, height: 50, fit: BoxFit.cover)
+                            ? Image.network(
+                                imageUrl,
+                                width: 50,
+                                height: 50,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  // Fallback widget when the image fails to load
+                                  return const Icon(Icons.broken_image,
+                                      size: 50);
+                                },
+                              )
                             : const Icon(Icons.image, size: 50),
                         title: Text(item['fields']['name']),
                         subtitle: Text(item['fields']['description']),
@@ -447,16 +460,51 @@ class _UploadState extends State<Upload> {
   final TextEditingController _descriptionController = TextEditingController();
   XFile? image; // To store the selected image
 
-  // Image Picker instance
   final ImagePicker _picker = ImagePicker();
 
-  // Pick an image from gallery
-  Future<void> _pickImage() async {
-    final XFile? pickedImage =
-        await _picker.pickImage(source: ImageSource.gallery);
-    setState(() {
-      image = pickedImage;
-    });
+  Future<void> _pickImage(BuildContext context) async {
+    // Show a dialog to let the user choose between camera and gallery
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Select Image Source"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text("Camera"),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final XFile? pickedImage =
+                      await _picker.pickImage(source: ImageSource.camera);
+                  if (pickedImage != null) {
+                    setState(() {
+                      image = pickedImage;
+                    });
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text("Gallery"),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final XFile? pickedImage =
+                      await _picker.pickImage(source: ImageSource.gallery);
+                  if (pickedImage != null) {
+                    setState(() {
+                      image = pickedImage;
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _uploadProduct() async {
@@ -599,10 +647,20 @@ class _UploadState extends State<Upload> {
             // Display the selected image if any
             image == null
                 ? const Text('No image selected.')
-                : Image.file(File(image!.path)),
+                : SizedBox(
+                    height: 200, // Set maximum height
+                    child: Image.file(
+                      File(image!.path),
+                      fit: BoxFit
+                          .contain, // Adjust as needed (cover, fill, etc.)
+                    ),
+                  ),
+
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _pickImage,
+              onPressed: () {
+                _pickImage(context);
+              },
               child: const Text('Select Image'),
             ),
             const SizedBox(height: 16),
