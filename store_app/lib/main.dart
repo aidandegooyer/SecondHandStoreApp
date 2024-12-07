@@ -10,7 +10,8 @@ void main() {
 }
 
 // App-wide variables
-const String baseUrl = 'http://127.0.0.1:8000/upload';
+const String baseUrl = 'http://10.0.2.2:8000/upload';
+const String baseIP = 'http://10.0.2.2:8000';
 int total = 0;
 
 // API Calls
@@ -137,7 +138,33 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Django API Integration',
-      theme: ThemeData(primarySwatch: Colors.blue),
+      theme: ThemeData(
+        primarySwatch: Colors.blue, // Main theme color
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue, // Button color
+            foregroundColor: Colors.white, // Text color
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+          ),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color.fromARGB(
+              115, 200, 230, 255), // Background color of text box
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8.0), // Rounded corners
+            borderSide: BorderSide(
+              color: Colors.blue, // Border color
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(
+              color: Colors.blue.shade700, // Focused border color
+              width: 2.0,
+            ),
+          ),
+        ),
+      ),
       home: const Marketplace(),
     );
   }
@@ -205,7 +232,7 @@ class _MarketplaceState extends State<Marketplace> {
             children: [
               if (item['fields']['image'] != "null")
                 Image.network(
-                  'http://127.0.0.1:8000/media/${item['fields']['image']}',
+                  '$baseIP/media/${item['fields']['image']}',
                   fit: BoxFit.cover,
                 ),
               SizedBox(height: 10),
@@ -339,7 +366,7 @@ class _MarketplaceState extends State<Marketplace> {
                   child: ListView.builder(
                     itemCount: items.length,
                     itemBuilder: (context, index) {
-                      const baseUrl = 'http://127.0.0.1:8000/media/';
+                      const baseUrl = '$baseIP/media/';
                       final item = items[index];
                       final imagePath = item['fields']['image'];
                       final imageUrl = imagePath != null && imagePath != 'null'
@@ -361,21 +388,42 @@ class _MarketplaceState extends State<Marketplace> {
 
           // Pagination buttons
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            padding: const EdgeInsets.only(
+                top: 10.0, bottom: 15.0), // Adjust the vertical position
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisAlignment: MainAxisAlignment.center, // Center the buttons
               children: [
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.only(
+                        topLeft:
+                            Radius.circular(8.0), // Connect top-left corner
+                        bottomLeft:
+                            Radius.circular(8.0), // Connect bottom-left corner
+                      ),
+                    ),
+                  ),
                   onPressed: currentPage > 0 && !isLoading
                       ? handlePreviousPage
                       : null, // Disable if on the first page or loading
-                  child: const Text('Previous'),
+                  child: const Text('<<'),
                 ),
                 ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.only(
+                        topRight:
+                            Radius.circular(8.0), // Connect top-right corner
+                        bottomRight:
+                            Radius.circular(8.0), // Connect bottom-right corner
+                      ),
+                    ),
+                  ),
                   onPressed: !isLoading && (10 * currentPage < total - 10)
                       ? handleNextPage
                       : null, // Disable if loading
-                  child: const Text('Next'),
+                  child: const Text('>>'),
                 ),
               ],
             ),
@@ -447,8 +495,8 @@ class _UploadState extends State<Upload> {
   Future<Map<String, dynamic>> createListing(
       String name, String description, double price, XFile imageFile) async {
     try {
-      var request = http.MultipartRequest(
-          'POST', Uri.parse('http://127.0.0.1:8000/upload/createListing/'));
+      var request =
+          http.MultipartRequest('POST', Uri.parse('$baseUrl/createListing/'));
 
       request.fields['name'] = name;
       request.fields['description'] = description;
